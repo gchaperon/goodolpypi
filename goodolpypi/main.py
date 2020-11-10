@@ -1,3 +1,4 @@
+from __future__ import annotations
 from urllib.request import urlopen
 from functools import partial
 import re
@@ -8,8 +9,18 @@ from itertools import zip_longest
 from operator import itemgetter
 from packaging.version import parse as parse_version, Version, LegacyVersion
 from packaging.requirements import Requirement
-from typing import Dict, Tuple, cast, List, Union, Protocol
+from typing import Dict, Tuple, cast, List, Union, TYPE_CHECKING
 from concurrent.futures import ThreadPoolExecutor
+
+
+if TYPE_CHECKING:
+
+    from typing import Protocol
+
+    class Arguments(Protocol):
+        date: datetime
+        requirements: List[Requirement]
+
 
 ParsedVersion = Union[Version, LegacyVersion]
 
@@ -72,11 +83,6 @@ def process_requirement(
         latest_version = fetch_latest_version(date, requirement)
         requirement.specifier &= f"<={latest_version}"
     return requirement
-
-
-class Arguments(Protocol):
-    date: datetime
-    requirements: List[Requirement]
 
 
 def main() -> None:
