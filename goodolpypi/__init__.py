@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from typing import Protocol
 
     class Arguments(Protocol):
-        date: datetime
+        date: dt.date
         requirements: List[Requirement]
 
 
@@ -37,7 +37,7 @@ def fetch_releases(project: str) -> Dict[ParsedVersion, list]:
     }
 
 
-def parse_date(date_str: str) -> datetime:
+def parse_date(date_str: str) -> dt.date:
     # this if only checks that after str.split("-") there is a maximum of
     # 3 items, so that the following cast is correct
     # the map(int, ...) guarantees that the substrings are integers
@@ -57,19 +57,16 @@ def parse_date(date_str: str) -> datetime:
     return dt.date(*date_args)
 
 
-def fetch_latest_version(
-    date: datetime, requirement: Requirement
+def get_latest_version(
+    date: dt.date, releases: Dict[ParsedVersion, list]
 ) -> ParsedVersion:
-    releases = fetch_releases(requirement.name)
     # releases with all files uploaded before target date
     all_valid = [
         version
         for version, files in releases.items()
         if files  # apparently, some releases don't have files
         and all(
-            datetime.fromisoformat(
-                file["upload_time_iso_8601"].replace("Z", "+00:00")
-            )
+            dt.date.fromisoformat(file["upload_time_iso_8601"].split("T")[0])
             < date
             for file in files
         )
@@ -79,11 +76,12 @@ def fetch_latest_version(
 
 
 def process_requirement(
-    date: datetime, requirement: Requirement
+    date: dt.date, requirement: Requirement
 ) -> Requirement:
     # add specifier only if the req doesn't have one
     if not requirement.specifier:
-        latest_version = fetch_latest_version(date, requirement)
+        releases = fetch_releases(requirement.name)
+        latest_version = get_latest_version(date, releases)
         requirement.specifier &= f"<={latest_version}"
     return requirement
 
@@ -103,7 +101,7 @@ def parse_args(args: Optional[List[str]] = None) -> Arguments:
 def main() -> None:
     #    for requirement in args.requirements:
     #       print(process_requirement(args.date, requirement))
-    args = parse_args()
+    args: Arguments = parse_args()
     with ThreadPoolExecutor(max_workers=10) as e:
         for requirement in e.map(
             partial(process_requirement, args.date), args.requirements
